@@ -86,7 +86,7 @@ function PagePreviewModal({
                   position: 'absolute',
                   left: `${el.x}%`, top: `${el.y}%`,
                   width: `${el.width}%`, height: `${el.height}%`,
-                  borderRadius: `${el.borderRadius}%`,
+                  borderRadius: 0,
                   overflow: 'hidden',
                   zIndex: el.zIndex,
                 }}>

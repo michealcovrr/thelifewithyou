@@ -10,7 +10,7 @@ interface Props {
 
 export default function BookSizePicker({ value, onChange }: Props) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+    <div className="grid grid-cols-2 gap-3">
       {BOOK_SIZES.map(size => {
         const selected = value === size.id
         return (

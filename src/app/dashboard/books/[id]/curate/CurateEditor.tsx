@@ -14,7 +14,7 @@ import Link from 'next/link'
 import {
   Plus, Trash2, ChevronLeft, ChevronRight, Save, ArrowLeft,
   MessageSquarePlus, Type, Bold, Italic,
-  AlignLeft, AlignCenter, AlignRight, Layers,
+  AlignLeft, AlignCenter, AlignRight, Layers, RotateCw, ArrowLeftRight,
 } from 'lucide-react'
 import Image from 'next/image'
 import BookSizePicker from '@/components/BookSizePicker'
@@ -31,7 +31,7 @@ interface Props {
   initialBookSize?: string | null
 }
 
-// ─── Draggable pool photo ──────────────────────────────────────────────────────
+// ─── Pool photo ────────────────────────────────────────────────────────────────
 
 function PoolPhoto({ photo, index }: { photo: Photo; index: number }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -54,12 +54,12 @@ function PoolPhoto({ photo, index }: { photo: Photo; index: number }) {
   )
 }
 
-// ─── Canvas photo element (free-form, selectable, resizable) ──────────────────
+// ─── Canvas photo element ─────────────────────────────────────────────────────
 
 type ResizeCorner = 'tl' | 'tr' | 'bl' | 'br'
 
 function CanvasPhotoEl({
-  el, selected, onSelect, onUpdate, onDelete, containerRef,
+  el, selected, onSelect, onUpdate, onDelete, containerRef, canSpan,
 }: {
   el: CanvasPhoto
   selected: boolean
@@ -67,7 +67,10 @@ function CanvasPhotoEl({
   onUpdate: (patch: Partial<CanvasPhoto>) => void
   onDelete: () => void
   containerRef: React.RefObject<HTMLDivElement | null>
+  canSpan: boolean
 }) {
+  const elRef = useRef<HTMLDivElement>(null)
+
   // ── Move ──────────────────────────────────────────────────────────────────
   function handleBodyMouseDown(e: React.MouseEvent) {
     if (e.button !== 0) return
@@ -76,12 +79,12 @@ function CanvasPhotoEl({
     const c = containerRef.current; if (!c) return
     const { width, height } = c.getBoundingClientRect()
     const startX = e.clientX; const startY = e.clientY
-    const startElX = el.x; const startElY = el.y
+    const sx = el.x; const sy = el.y
 
     function onMove(ev: MouseEvent) {
       onUpdate({
-        x: Math.max(0, Math.min(100 - el.width, startElX + ((ev.clientX - startX) / width) * 100)),
-        y: Math.max(0, Math.min(100 - el.height, startElY + ((ev.clientY - startY) / height) * 100)),
+        x: Math.max(0, Math.min(100 - el.width, sx + ((ev.clientX - startX) / width) * 100)),
+        y: Math.max(0, Math.min(100 - el.height, sy + ((ev.clientY - startY) / height) * 100)),
       })
     }
     function onUp() { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
@@ -104,10 +107,27 @@ function CanvasPhotoEl({
       if (corner === 'tr') { ny = snap.y + dy; nw = snap.w + dx; nh = snap.h - dy }
       if (corner === 'bl') { nx = snap.x + dx; nw = snap.w - dx; nh = snap.h + dy }
       if (corner === 'br') { nw = snap.w + dx; nh = snap.h + dy }
-      // Clamp minimum size to 5%
       if (nw < 5) { nw = 5; if (corner === 'tl' || corner === 'bl') nx = snap.x + snap.w - 5 }
       if (nh < 5) { nh = 5; if (corner === 'tl' || corner === 'tr') ny = snap.y + snap.h - 5 }
       onUpdate({ x: nx, y: ny, width: nw, height: nh })
+    }
+    function onUp() { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
+  }
+
+  // ── Rotate ────────────────────────────────────────────────────────────────
+  function handleRotateMouseDown(e: React.MouseEvent) {
+    e.stopPropagation()
+    const el_el = elRef.current; if (!el_el) return
+    const rect = el_el.getBoundingClientRect()
+    const cx = rect.left + rect.width / 2
+    const cy = rect.top + rect.height / 2
+    const startAngle = Math.atan2(e.clientY - cy, e.clientX - cx)
+    const startRot = el.rotation ?? 0
+
+    function onMove(ev: MouseEvent) {
+      const angle = Math.atan2(ev.clientY - cy, ev.clientX - cx)
+      onUpdate({ rotation: startRot + (angle - startAngle) * (180 / Math.PI) })
     }
     function onUp() { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
     window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
@@ -122,6 +142,7 @@ function CanvasPhotoEl({
 
   return (
     <div
+      ref={elRef}
       style={{
         position: 'absolute',
         left: `${el.x}%`, top: `${el.y}%`,
@@ -129,67 +150,73 @@ function CanvasPhotoEl({
         zIndex: el.zIndex,
         cursor: 'move',
         userSelect: 'none',
+        transform: `rotate(${el.rotation ?? 0}deg)`,
+        transformOrigin: 'center center',
       }}
       onMouseDown={handleBodyMouseDown}
     >
-      {/* Photo (clipped for borderRadius) */}
-      <div
-        style={{
-          position: 'relative',
-          width: '100%', height: '100%',
-          borderRadius: `${el.borderRadius}%`,
-          overflow: 'hidden',
-          boxShadow: selected ? '0 0 0 2px #3b82f6' : 'none',
-        }}
-      >
+      {/* Photo clip */}
+      <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden',
+        boxShadow: selected ? '0 0 0 2px #3b82f6' : 'none' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={el.photoUrl} alt=""
+        <img src={el.photoUrl} alt=""
           className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
           style={{ objectPosition: `${el.objectPosition.x}% ${el.objectPosition.y}%` }}
           draggable={false}
         />
       </div>
 
-      {/* Selection handles + toolbar */}
       {selected && (
         <>
-          {/* Corner resize handles */}
+          {/* Rotation handle */}
+          <div
+            style={{ position: 'absolute', top: -26, left: '50%', transform: 'translateX(-50%)', zIndex: 51 }}
+            className="w-5 h-5 rounded-full bg-white border-2 border-blue-500 flex items-center justify-center cursor-grab shadow-sm"
+            onMouseDown={handleRotateMouseDown}
+          >
+            <RotateCw size={10} className="text-blue-500" />
+          </div>
+          {/* Line from handle to element */}
+          <div style={{ position: 'absolute', top: -12, left: '50%', width: 1, height: 12, background: 'rgba(59,130,246,0.5)', zIndex: 50 }} />
+
+          {/* Corner handles */}
           {corners.map(c => (
-            <div
-              key={c.id}
+            <div key={c.id}
               style={{ ...c.style, cursor: c.cursor, position: 'absolute', width: 10, height: 10 }}
               className="bg-white border-2 border-blue-500 rounded-sm z-50"
               onMouseDown={e => handleCornerMouseDown(e, c.id)}
             />
           ))}
 
-          {/* Floating toolbar above element */}
+          {/* Toolbar */}
           <div
-            className="absolute -top-9 left-0 flex items-center gap-1 bg-white rounded-lg shadow-lg px-2 py-1 z-50 border border-stone-200"
+            className="absolute -top-9 left-0 flex items-center gap-1 bg-white rounded-lg shadow-lg px-2 py-1 z-50 border border-stone-200 whitespace-nowrap"
             onMouseDown={e => e.stopPropagation()}
           >
-            {/* Border radius */}
-            <span className="text-[9px] text-stone-400 mr-1">Radius</span>
-            <input
-              type="range" min={0} max={50} value={el.borderRadius}
-              onChange={e => onUpdate({ borderRadius: Number(e.target.value) })}
-              className="w-16 h-1 accent-stone-900"
-            />
-            <div className="w-px h-4 bg-stone-200 mx-1" />
-            {/* Layer up */}
+            {canSpan && (
+              <>
+                <button onClick={() => onUpdate({ crossPage: !el.crossPage })}
+                  title={el.crossPage ? 'Unspan pages' : 'Span across both pages'}
+                  className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+                    el.crossPage ? 'bg-blue-100 text-blue-700' : 'text-stone-500 hover:text-stone-900'
+                  }`}>
+                  <ArrowLeftRight size={12} />
+                  {el.crossPage ? 'Unspan' : 'Span pages'}
+                </button>
+                <div className="w-px h-4 bg-stone-200" />
+              </>
+            )}
             <button onClick={() => onUpdate({ zIndex: el.zIndex + 1 })} title="Bring forward"
-              className="text-stone-500 hover:text-stone-900 transition-colors p-0.5">
+              className="text-stone-500 hover:text-stone-900 p-0.5 transition-colors">
               <Layers size={13} />
             </button>
-            {/* Layer down */}
             <button onClick={() => onUpdate({ zIndex: Math.max(1, el.zIndex - 1) })} title="Send back"
-              className="text-stone-400 hover:text-stone-900 transition-colors p-0.5 rotate-180">
+              className="text-stone-400 hover:text-stone-900 p-0.5 transition-colors rotate-180">
               <Layers size={13} />
             </button>
-            <div className="w-px h-4 bg-stone-200 mx-1" />
+            <div className="w-px h-4 bg-stone-200" />
             <button onClick={onDelete} title="Delete"
-              className="text-red-400 hover:text-red-600 transition-colors p-0.5">
+              className="text-red-400 hover:text-red-600 p-0.5 transition-colors">
               <Trash2 size={13} />
             </button>
           </div>
@@ -245,8 +272,7 @@ function EditableTextBlock({
         userSelect: editing ? 'text' : 'none',
         zIndex: 40, lineHeight: 1.3,
         outline: selected && !editing ? '1px dashed rgba(59,130,246,0.7)' : 'none',
-        outlineOffset: 3,
-        maxWidth: '80%',
+        outlineOffset: 3, maxWidth: '80%',
       }}
       onMouseDown={handleMouseDown}
       onDoubleClick={e => { e.stopPropagation(); setEditing(true); onSelect() }}
@@ -274,15 +300,15 @@ function EditableTextBlock({
   )
 }
 
-// ─── Page canvas (droppable, free-form) ───────────────────────────────────────
+// ─── Page canvas ──────────────────────────────────────────────────────────────
 
 function PageCanvas({
   page, isActive, onActivate,
   selectedElId, onElSelect, onElUpdate, onElDelete,
   selectedTextId, onTextSelect, onTextUpdate, onTextDelete,
+  canSpan,
 }: {
-  page: BookPage
-  isActive: boolean; onActivate: () => void
+  page: BookPage; isActive: boolean; onActivate: () => void
   selectedElId: string | null
   onElSelect: (id: string | null) => void
   onElUpdate: (id: string, patch: Partial<CanvasPhoto>) => void
@@ -291,6 +317,7 @@ function PageCanvas({
   onTextSelect: (id: string | null) => void
   onTextUpdate: (id: string, patch: Partial<TextBlock>) => void
   onTextDelete: (id: string) => void
+  canSpan: boolean
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `canvas-${page.id}`, data: { pageId: page.id } })
   const containerRef = useRef<HTMLDivElement>(null)
@@ -299,6 +326,9 @@ function PageCanvas({
     (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el
     setNodeRef(el)
   }
+
+  // Only render elements that are NOT cross-page (cross-page renders at spread level)
+  const pageElements = (page.elements ?? []).filter(el => !el.crossPage)
 
   return (
     <div
@@ -309,22 +339,18 @@ function PageCanvas({
       } ${isActive ? 'ring-2 ring-stone-900 ring-offset-2' : 'hover:ring-2 hover:ring-stone-300 hover:ring-offset-2 cursor-pointer'}`}
       style={{ background: page.background }}
     >
-      {/* Photos */}
-      {[...page.elements].sort((a, b) => a.zIndex - b.zIndex).map(el => (
-        <CanvasPhotoEl
-          key={el.id} el={el}
-          selected={selectedElId === el.id}
+      {[...pageElements].sort((a, b) => a.zIndex - b.zIndex).map(el => (
+        <CanvasPhotoEl key={el.id} el={el} selected={selectedElId === el.id}
           onSelect={() => onElSelect(el.id)}
           onUpdate={patch => onElUpdate(el.id, patch)}
           onDelete={() => onElDelete(el.id)}
           containerRef={containerRef}
+          canSpan={canSpan}
         />
       ))}
 
-      {/* Text blocks */}
       {page.textBlocks.map(block => (
-        <EditableTextBlock
-          key={block.id} block={block}
+        <EditableTextBlock key={block.id} block={block}
           selected={selectedTextId === block.id}
           onSelect={() => onTextSelect(block.id)}
           onUpdate={patch => onTextUpdate(block.id, patch)}
@@ -333,19 +359,14 @@ function PageCanvas({
         />
       ))}
 
-      {/* No per-page bleed — guide is shown on the spread border */}
-
-      {/* Drop hint */}
-      {isOver && page.elements.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-          <p className="text-stone-400 text-sm font-medium">Drop photo here</p>
-        </div>
-      )}
-
-      {/* Empty state */}
-      {!isOver && page.elements.length === 0 && (
+      {!isOver && pageElements.length === 0 && page.textBlocks.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
           <p className="text-stone-300 text-xs">Drag photos here</p>
+        </div>
+      )}
+      {isOver && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20 bg-blue-50/30">
+          <p className="text-blue-500 text-sm font-medium">Drop photo</p>
         </div>
       )}
     </div>
@@ -385,9 +406,7 @@ function NotesDropdown({ notes, onChange }: { notes: string[]; onChange: (n: str
             <div key={i} className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5 group">
               <span className="text-amber-400 text-[10px] mt-0.5">•</span>
               <span className="text-[10px] text-stone-700 flex-1">{n}</span>
-              <button onClick={() => onChange(notes.filter((_,j) => j !== i))} className="text-stone-300 hover:text-red-400 opacity-0 group-hover:opacity-100">
-                <Trash2 size={11} />
-              </button>
+              <button onClick={() => onChange(notes.filter((_,j) => j !== i))} className="text-stone-300 hover:text-red-400 opacity-0 group-hover:opacity-100"><Trash2 size={11} /></button>
             </div>
           ))}
           <div className="flex gap-1.5">
@@ -433,8 +452,8 @@ function TextStylePanel({ block, onUpdate }: { block: TextBlock; onUpdate: (p: P
       </div>
       <div className="flex gap-1 items-center">
         {[
-          { icon: <Bold size={12} />, key: 'bold', val: block.bold },
-          { icon: <Italic size={12} />, key: 'italic', val: block.italic },
+          { icon: <Bold size={12} />, key: 'bold' as const, val: block.bold },
+          { icon: <Italic size={12} />, key: 'italic' as const, val: block.italic },
         ].map(({ icon, key, val }) => (
           <button key={key} onClick={() => onUpdate({ [key]: !val })}
             className={`p-1.5 rounded border transition-colors ${val ? 'bg-stone-900 text-white border-stone-900' : 'bg-white text-stone-500 border-stone-200 hover:border-stone-400'}`}>
@@ -489,20 +508,16 @@ function BookSizeDropdown({ value, onChange }: { value: BookSizeId; onChange: (i
   )
 }
 
-// ─── Spread size hook — JS approach for reliable aspect ratio ─────────────────
+// ─── Spread size hook ─────────────────────────────────────────────────────────
 
 function useSpreadSize(containerRef: React.RefObject<HTMLDivElement | null>, aspectRatio: number) {
   const [size, setSize] = useState({ w: 0, h: 0 })
   useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
+    const el = containerRef.current; if (!el) return
     const obs = new ResizeObserver(entries => {
       const { width, height } = entries[0].contentRect
-      if (width / height > aspectRatio) {
-        setSize({ w: height * aspectRatio, h: height })
-      } else {
-        setSize({ w: width, h: width / aspectRatio })
-      }
+      if (width / height > aspectRatio) setSize({ w: height * aspectRatio, h: height })
+      else setSize({ w: width, h: width / aspectRatio })
     })
     obs.observe(el)
     return () => obs.disconnect()
@@ -526,17 +541,16 @@ export default function CurateEditor({
   const [saved, setSaved] = useState(false)
 
   const spreadContainerRef = useRef<HTMLDivElement>(null)
+  const spreadElLayerRef = useRef<HTMLDivElement>(null)
   const bookSize = getBookSize(bookSizeId)
-  // Spread aspect ratio = 2 pages wide + thin spine / page height
   const spreadAR = bookSize.aspectNum * 2
   const spreadSize = useSpreadSize(spreadContainerRef, spreadAR)
 
   const spreads = buildSpreads(layout.pages)
   const currentSpread = spreads[Math.min(spreadIndex, spreads.length - 1)]
-
   const dims = BOOK_DIMS[bookSizeId] ?? [8, 10]
-  const bleedX = (0.5 / dims[0]) * 100
   const bleedY = (0.5 / dims[1]) * 100
+  const bleedXSpread = (0.5 / (dims[0] * 2)) * 100  // 0.5in as % of spread width
 
   const activePageIndex = activePageId ? layout.pages.findIndex(p => p.id === activePageId) : -1
   const activePage = activePageIndex >= 0 ? layout.pages[activePageIndex] : null
@@ -544,6 +558,9 @@ export default function CurateEditor({
   const selectedTextBlock = selectedText
     ? layout.pages.find(p => p.id === selectedText.pageId)?.textBlocks.find(b => b.id === selectedText.blockId) ?? null
     : null
+
+  // Two editable pages in current spread (for cross-page eligibility)
+  const hasTwoPages = currentSpread?.left !== null && currentSpread?.right !== null
 
   const updatePage = useCallback((idx: number, fn: (p: BookPage) => BookPage) => {
     setLayout(prev => ({ pages: prev.pages.map((p, i) => i === idx ? fn(p) : p) }))
@@ -568,7 +585,6 @@ export default function CurateEditor({
     const drop = over.data.current as { pageId: string } | undefined
     if (!drop?.pageId) return
 
-    // Calculate drop position relative to canvas
     const canvasRect = over.rect
     const draggedRect = active.rect.current?.translated
     let x = 30, y = 30
@@ -580,17 +596,15 @@ export default function CurateEditor({
     const pageId = drop.pageId
     const maxZ = layout.pages.find(p => p.id === pageId)?.elements.reduce((m, el) => Math.max(m, el.zIndex), 0) ?? 0
     const newEl: CanvasPhoto = {
-      id: crypto.randomUUID(),
-      photoUrl: drag.url,
-      x, y,
-      width: 40, height: 40,
+      id: crypto.randomUUID(), photoUrl: drag.url,
+      x, y, width: 40, height: 40,
       objectPosition: { x: 50, y: 50 },
-      borderRadius: 0,
-      zIndex: maxZ + 1,
+      rotation: 0, zIndex: maxZ + 1,
     }
     updatePageById(pageId, page => ({ ...page, elements: [...page.elements, newEl] }))
     setSelectedEl({ pageId, elId: newEl.id })
     setSelectedText(null)
+    setActivePageId(pageId)
   }
 
   function updateElement(pageId: string, elId: string, patch: Partial<CanvasPhoto>) {
@@ -610,8 +624,8 @@ export default function CurateEditor({
     const newBlock: TextBlock = {
       id: crypto.randomUUID(),
       content: 'Double-click to edit',
-      x: 20, y: 45, fontSize: 3,
-      fontFamily: 'serif', color: '#ffffff',
+      x: 15, y: 40, fontSize: 3,
+      fontFamily: 'serif', color: '#1a1714',
       textAlign: 'left', bold: false, italic: false,
     }
     updatePageById(activePageId, page => ({ ...page, textBlocks: [...page.textBlocks, newBlock] }))
@@ -659,7 +673,24 @@ export default function CurateEditor({
     setActivePageId(null); setSelectedEl(null); setSelectedText(null)
   }
 
-  const filledCount = layout.pages.reduce((a, p) => a + p.elements.length, 0)
+  // Collect cross-page elements from both pages in current spread
+  type CrossEl = { el: CanvasPhoto; pageId: string }
+  const crossPageEls: CrossEl[] = []
+  if (currentSpread) {
+    for (const page of [currentSpread.left, currentSpread.right]) {
+      if (page) {
+        for (const el of page.elements ?? []) {
+          if (el.crossPage) crossPageEls.push({ el, pageId: page.id })
+        }
+      }
+    }
+  }
+
+  const filledCount = layout.pages.reduce((a, p) => a + (p.elements?.length ?? 0), 0)
+
+  const spreadLabel = spreadIndex === 0
+    ? 'Inner cover  ·  Page 1'
+    : [currentSpread?.leftLabel, currentSpread?.rightLabel].filter(Boolean).join('  ·  ')
 
   function renderPage(page: BookPage | null, isLeftNull: boolean) {
     if (isLeftNull) return <IfcPlaceholder />
@@ -672,7 +703,7 @@ export default function CurateEditor({
       <PageCanvas
         page={page}
         isActive={activePageId === page.id}
-        onActivate={() => { setActivePageId(page.id) }}
+        onActivate={() => setActivePageId(page.id)}
         selectedElId={selectedEl?.pageId === page.id ? selectedEl.elId : null}
         onElSelect={id => { setSelectedEl(id ? { pageId: page.id, elId: id } : null); setSelectedText(null) }}
         onElUpdate={(id, patch) => updateElement(page.id, id, patch)}
@@ -681,13 +712,10 @@ export default function CurateEditor({
         onTextSelect={id => { setSelectedText(id ? { pageId: page.id, blockId: id } : null); setSelectedEl(null) }}
         onTextUpdate={(id, patch) => updateTextBlock(page.id, id, patch)}
         onTextDelete={id => deleteTextBlock(page.id, id)}
+        canSpan={hasTwoPages}
       />
     )
   }
-
-  const spreadLabel = spreadIndex === 0
-    ? 'Inner cover  ·  Page 1'
-    : [currentSpread?.leftLabel, currentSpread?.rightLabel].filter(Boolean).join('  ·  ')
 
   return (
     <DndContext id="curate-editor" onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -714,7 +742,8 @@ export default function CurateEditor({
               <Trash2 size={14} /> Delete page
             </button>
             <button onClick={addTextBlock} disabled={!activePageId}
-              className="flex items-center gap-1.5 border border-stone-200 px-3 py-2 rounded-full text-sm text-stone-600 hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              className="flex items-center gap-1.5 border border-stone-200 px-3 py-2 rounded-full text-sm text-stone-600 hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              title={!activePageId ? 'Select a page first' : 'Add text block'}>
               <Type size={14} /> Add text
             </button>
             <button onClick={handleSave} disabled={saving}
@@ -737,16 +766,13 @@ export default function CurateEditor({
             </div>
             <div className="flex-1 overflow-y-auto p-3 grid grid-cols-3 gap-2 content-start">
               {photos.map((photo, i) => <PoolPhoto key={i} photo={photo} index={i} />)}
-              {photos.length === 0 && (
-                <p className="col-span-3 text-xs text-stone-400 text-center py-8">No photos yet</p>
-              )}
+              {photos.length === 0 && <p className="col-span-3 text-xs text-stone-400 text-center py-8">No photos yet</p>}
             </div>
           </div>
 
           {/* ── Centre: Spread ────────────────────────────────────────────── */}
           <div className="flex-1 flex flex-col items-center justify-between py-4 px-6 overflow-hidden gap-3">
 
-            {/* Label + dots */}
             <div className="flex items-center gap-3 shrink-0">
               <span className="text-sm text-stone-500 font-medium">{spreadLabel}</span>
               <div className="flex gap-1">
@@ -757,7 +783,6 @@ export default function CurateEditor({
               </div>
             </div>
 
-            {/* Spread canvas */}
             <div ref={spreadContainerRef} className="flex-1 w-full flex items-center justify-center min-h-0">
               {spreadSize.w > 0 && (
                 <div className="flex items-center gap-4">
@@ -766,28 +791,42 @@ export default function CurateEditor({
                     <ChevronLeft size={22} />
                   </button>
 
+                  {/* Spread — two pages seamless */}
                   <div
-                    className="relative flex shadow-2xl"
+                    className="relative flex shadow-2xl overflow-visible"
                     style={{ width: spreadSize.w - 80, height: spreadSize.h }}
                   >
-                    {/* Left page — seamless layflat, no spine */}
                     <div style={{ flex: 1 }}>
                       {renderPage(currentSpread.left, currentSpread.left === null)}
                     </div>
-                    {/* Right page */}
                     <div style={{ flex: 1 }}>
                       {renderPage(currentSpread.right, false)}
                     </div>
 
-                    {/* Bleed guide — outer edges of the whole spread only */}
+                    {/* Cross-page elements layer — overlays both pages */}
+                    <div ref={spreadElLayerRef} className="absolute inset-0 pointer-events-none" style={{ zIndex: 25 }}>
+                      {crossPageEls.map(({ el, pageId }) => (
+                        <div key={el.id} className="pointer-events-auto">
+                          <CanvasPhotoEl
+                            el={el}
+                            selected={selectedEl?.elId === el.id}
+                            onSelect={() => { setSelectedEl({ pageId, elId: el.id }); setSelectedText(null); setActivePageId(pageId) }}
+                            onUpdate={patch => updateElement(pageId, el.id, patch)}
+                            onDelete={() => deleteElement(pageId, el.id)}
+                            containerRef={spreadElLayerRef}
+                            canSpan={hasTwoPages}
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Outer bleed guide */}
                     <div
                       className="absolute pointer-events-none"
                       style={{
-                        top: `${bleedY}%`,
-                        left: `${(0.5 / dims[0]) * 50}%`,   // 0.5in as % of half-spread (one page width)
-                        right: `${(0.5 / dims[0]) * 50}%`,
-                        bottom: `${bleedY}%`,
-                        border: '1px dashed rgba(160,120,0,0.45)',
+                        top: `${bleedY}%`, bottom: `${bleedY}%`,
+                        left: `${bleedXSpread * 2}%`, right: `${bleedXSpread * 2}%`,
+                        border: '1px dashed rgba(160,120,0,0.4)',
                         zIndex: 50,
                       }}
                     />
@@ -802,8 +841,8 @@ export default function CurateEditor({
             </div>
 
             <p className="text-[10px] text-stone-400 shrink-0">
-              <span className="opacity-60">– – –</span> dashed line = 0.5&quot; bleed margin
-              {!activePageId && <span className="ml-2">· Click a page to select it</span>}
+              <span className="opacity-60">– – –</span> dashed border = 0.5&quot; print bleed margin
+              {!activePageId && <span className="ml-2">· Click a page first, then &quot;Add text&quot;</span>}
             </p>
           </div>
 
@@ -812,17 +851,15 @@ export default function CurateEditor({
 
             <BookSizeDropdown value={bookSizeId} onChange={setBookSizeId} />
 
-            {/* Text style (when text selected) */}
-            {selectedTextBlock && (
+            {selectedTextBlock ? (
               <TextStylePanel
                 block={selectedTextBlock}
                 onUpdate={patch => updateTextBlock(selectedText!.pageId, selectedText!.blockId, patch)}
               />
-            )}
+            ) : null}
 
             {activePage ? (
               <>
-                {/* Background colour */}
                 <div className="px-4 py-3 border-b border-stone-100">
                   <p className="text-xs font-semibold text-stone-700 mb-2">Page background</p>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -836,8 +873,6 @@ export default function CurateEditor({
                     ))}
                   </div>
                 </div>
-
-                {/* Notes */}
                 <div className="px-4 pb-4">
                   <NotesDropdown
                     notes={activePage.notes}
@@ -847,7 +882,10 @@ export default function CurateEditor({
               </>
             ) : (
               <div className="flex-1 flex items-center justify-center px-6 text-center">
-                <p className="text-sm text-stone-400 leading-relaxed">Click a page to select it and edit</p>
+                <div>
+                  <p className="text-sm text-stone-400 leading-relaxed mb-2">Click a page to select it</p>
+                  <p className="text-xs text-stone-300">Then drag photos from the pool, or use &quot;Add text&quot; above</p>
+                </div>
               </div>
             )}
           </div>

@@ -32,13 +32,14 @@ export interface TextBlock {
 export interface CanvasPhoto {
   id: string
   photoUrl: string
-  x: number         // % from left (0–100)
+  x: number         // % from left (0–100) — relative to page, or spread when crossPage=true
   y: number         // % from top (0–100)
   width: number     // % of canvas width (1–100)
   height: number    // % of canvas height (1–100)
   objectPosition: { x: number; y: number }
-  borderRadius: number   // % (0 = sharp, 50 = circle)
+  rotation: number  // degrees
   zIndex: number
+  crossPage?: boolean  // true = spans both pages; coords relative to full spread width
 }
 
 export interface BookPage {
