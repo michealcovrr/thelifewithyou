@@ -825,7 +825,7 @@ export default function CurateEditor({
                       className="absolute pointer-events-none"
                       style={{
                         top: `${bleedY}%`, bottom: `${bleedY}%`,
-                        left: `${bleedXSpread * 2}%`, right: `${bleedXSpread * 2}%`,
+                        left: `${bleedXSpread}%`, right: `${bleedXSpread}%`,
                         border: '1px dashed rgba(160,120,0,0.4)',
                         zIndex: 50,
                       }}
