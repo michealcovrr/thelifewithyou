@@ -135,6 +135,7 @@ function CanvasPhotoEl({
       {/* Photo (clipped for borderRadius) */}
       <div
         style={{
+          position: 'relative',
           width: '100%', height: '100%',
           borderRadius: `${el.borderRadius}%`,
           overflow: 'hidden',
@@ -276,12 +277,11 @@ function EditableTextBlock({
 // ─── Page canvas (droppable, free-form) ───────────────────────────────────────
 
 function PageCanvas({
-  page, bleedX, bleedY, isActive, onActivate,
+  page, isActive, onActivate,
   selectedElId, onElSelect, onElUpdate, onElDelete,
   selectedTextId, onTextSelect, onTextUpdate, onTextDelete,
 }: {
   page: BookPage
-  bleedX: number; bleedY: number
   isActive: boolean; onActivate: () => void
   selectedElId: string | null
   onElSelect: (id: string | null) => void
@@ -333,16 +333,7 @@ function PageCanvas({
         />
       ))}
 
-      {/* Bleed guide */}
-      <div
-        className="absolute pointer-events-none"
-        style={{
-          top: `${bleedY}%`, left: `${bleedX}%`,
-          right: `${bleedX}%`, bottom: `${bleedY}%`,
-          border: '1px dashed rgba(160,120,0,0.4)',
-          zIndex: 45,
-        }}
-      />
+      {/* No per-page bleed — guide is shown on the spread border */}
 
       {/* Drop hint */}
       {isOver && page.elements.length === 0 && (
@@ -680,7 +671,6 @@ export default function CurateEditor({
     return (
       <PageCanvas
         page={page}
-        bleedX={bleedX} bleedY={bleedY}
         isActive={activePageId === page.id}
         onActivate={() => { setActivePageId(page.id) }}
         selectedElId={selectedEl?.pageId === page.id ? selectedEl.elId : null}
@@ -777,19 +767,30 @@ export default function CurateEditor({
                   </button>
 
                   <div
-                    className="flex shadow-2xl"
+                    className="relative flex shadow-2xl"
                     style={{ width: spreadSize.w - 80, height: spreadSize.h }}
                   >
-                    {/* Left page */}
+                    {/* Left page — seamless layflat, no spine */}
                     <div style={{ flex: 1 }}>
                       {renderPage(currentSpread.left, currentSpread.left === null)}
                     </div>
-                    {/* Spine */}
-                    <div className="w-3 shrink-0 bg-gradient-to-r from-stone-400 via-stone-200 to-stone-400" />
                     {/* Right page */}
                     <div style={{ flex: 1 }}>
                       {renderPage(currentSpread.right, false)}
                     </div>
+
+                    {/* Bleed guide — outer edges of the whole spread only */}
+                    <div
+                      className="absolute pointer-events-none"
+                      style={{
+                        top: `${bleedY}%`,
+                        left: `${(0.5 / dims[0]) * 50}%`,   // 0.5in as % of half-spread (one page width)
+                        right: `${(0.5 / dims[0]) * 50}%`,
+                        bottom: `${bleedY}%`,
+                        border: '1px dashed rgba(160,120,0,0.45)',
+                        zIndex: 50,
+                      }}
+                    />
                   </div>
 
                   <button onClick={() => goSpread(1)} disabled={spreadIndex === spreads.length - 1}
