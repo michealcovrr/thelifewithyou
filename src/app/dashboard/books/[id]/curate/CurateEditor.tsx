@@ -77,7 +77,7 @@ function PoolPhoto({ photo, index }: { photo: Photo; index: number }) {
       ref={setNodeRef} {...listeners} {...attributes}
       title={photo.contributor}
       className={`relative aspect-square rounded-lg overflow-hidden cursor-grab active:cursor-grabbing
-        border-2 border-transparent hover:border-stone-500 hover:scale-105 transition-all shadow-sm
+        border-2 border-transparent hover:border-stone-400 hover:scale-105 transition-all shadow-sm
         ${isDragging ? 'opacity-25 scale-95' : ''}`}
     >
       <Image src={photo.url} alt={photo.contributor} fill className="object-cover" sizes="80px" />
@@ -138,8 +138,8 @@ function PageSlotCell({
       data-slot
       style={{ gridArea }}
       className={`relative overflow-hidden transition-all ${
-        isOver ? 'ring-4 ring-white ring-offset-1 ring-inset scale-[0.98]' : ''
-      } ${slot.photoUrl ? '' : 'bg-stone-800 border border-dashed border-stone-600'}`}
+        isOver ? 'ring-4 ring-stone-900 ring-offset-1 scale-[0.98]' : ''
+      } ${slot.photoUrl ? '' : 'bg-stone-100 border-2 border-dashed border-stone-300'}`}
     >
       {slot.photoUrl ? (
         <>
@@ -188,12 +188,12 @@ function PageSlotCell({
           </div>
         </>
       ) : (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-stone-600">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-stone-400">
           {isOver
-            ? <span className="text-white font-semibold text-xs">Drop here</span>
+            ? <span className="text-stone-700 font-semibold text-sm">Drop here</span>
             : <>
-                <div className="w-8 h-8 rounded-full border border-dashed border-stone-600 flex items-center justify-center">
-                  <Plus size={14} className="text-stone-600" />
+                <div className="w-8 h-8 rounded-full border-2 border-dashed border-stone-300 flex items-center justify-center">
+                  <Plus size={14} className="text-stone-300" />
                 </div>
                 <span className="text-[10px]">drag photo here</span>
               </>
@@ -207,11 +207,9 @@ function PageSlotCell({
 // ─── Editable text block ───────────────────────────────────────────────────────
 
 function EditableTextBlock({
-  block, pageId, selected,
-  onSelect, onUpdate, onDelete, onDragStart,
+  block, selected, onSelect, onUpdate, onDelete, onDragStart,
 }: {
   block: TextBlock
-  pageId: string
   selected: boolean
   onSelect: () => void
   onUpdate: (patch: Partial<TextBlock>) => void
@@ -219,8 +217,8 @@ function EditableTextBlock({
   onDragStart: (e: React.MouseEvent) => void
 }) {
   const [editing, setEditing] = useState(false)
+  const fontSizes = ['0.55rem', '0.7rem', '0.875rem', '1.15rem', '1.6rem']
 
-  const fontSizes = ['0.6rem', '0.75rem', '0.9rem', '1.2rem', '1.7rem']
   const style: React.CSSProperties = {
     position: 'absolute',
     left: `${block.x}%`,
@@ -242,7 +240,7 @@ function EditableTextBlock({
   return (
     <div
       style={style}
-      className={`group ${selected && !editing ? 'outline outline-2 outline-dashed outline-white/70 outline-offset-2' : ''}`}
+      className={selected && !editing ? 'outline outline-2 outline-dashed outline-stone-400 outline-offset-2' : ''}
       onMouseDown={e => { if (!editing) { e.stopPropagation(); onSelect(); onDragStart(e) } }}
       onDoubleClick={e => { e.stopPropagation(); setEditing(true); onSelect() }}
     >
@@ -269,7 +267,7 @@ function EditableTextBlock({
       {selected && !editing && (
         <button
           onMouseDown={e => { e.stopPropagation(); onDelete() }}
-          className="absolute -top-4 -right-4 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] hover:bg-red-600"
+          className="absolute -top-4 -right-4 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] hover:bg-red-600"
         >
           ×
         </button>
@@ -278,7 +276,7 @@ function EditableTextBlock({
   )
 }
 
-// ─── Page canvas with bleed guide + text layer ────────────────────────────────
+// ─── Page canvas ──────────────────────────────────────────────────────────────
 
 function PageCanvas({
   page, bleedX, bleedY, isActive, onActivate,
@@ -286,8 +284,7 @@ function PageCanvas({
   selectedTextId, onTextSelect, onTextUpdate, onTextDelete,
 }: {
   page: BookPage
-  bleedX: number
-  bleedY: number
+  bleedX: number; bleedY: number
   isActive: boolean
   onActivate: () => void
   onSlotClear: (i: number) => void
@@ -302,46 +299,30 @@ function PageCanvas({
   const containerRef = useRef<HTMLDivElement>(null)
 
   function handleTextDragStart(e: React.MouseEvent, block: TextBlock) {
-    const container = containerRef.current
-    if (!container) return
-    const startX = e.clientX
-    const startY = e.clientY
-    const startBX = block.x
-    const startBY = block.y
-    const captured = container
-
+    const captured = containerRef.current
+    if (!captured) return
+    const startX = e.clientX; const startY = e.clientY
+    const startBX = block.x; const startBY = block.y
+    const el: HTMLDivElement = captured
     function onMove(ev: MouseEvent) {
-      const { width, height } = captured.getBoundingClientRect()
-      const dx = ((ev.clientX - startX) / width) * 100
-      const dy = ((ev.clientY - startY) / height) * 100
+      const { width, height } = el.getBoundingClientRect()
       onTextUpdate(block.id, {
-        x: Math.min(95, Math.max(0, startBX + dx)),
-        y: Math.min(95, Math.max(0, startBY + dy)),
+        x: Math.min(95, Math.max(0, startBX + ((ev.clientX - startX) / width) * 100)),
+        y: Math.min(95, Math.max(0, startBY + ((ev.clientY - startY) / height) * 100)),
       })
     }
-    function onUp() {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
+    function onUp() { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
   }
 
   return (
     <div
       ref={containerRef}
-      data-page-canvas
       onClick={onActivate}
-      className={`relative w-full h-full overflow-hidden shadow-2xl transition-all ${
-        isActive ? 'ring-2 ring-white/60' : 'opacity-90 hover:opacity-100'
+      className={`relative w-full h-full overflow-hidden cursor-pointer transition-all ${
+        isActive ? 'ring-2 ring-stone-900 ring-offset-2' : 'hover:ring-2 hover:ring-stone-300 hover:ring-offset-2'
       }`}
       style={{ background: page.background }}
-      onMouseDown={e => {
-        // deselect text when clicking on the canvas background
-        if ((e.target as HTMLElement).dataset.pageCanvas !== undefined) {
-          onTextSelect(null)
-        }
-      }}
     >
       {/* Photo grid */}
       <div
@@ -355,10 +336,7 @@ function PageCanvas({
       >
         {page.slots.map((slot, i) => (
           <PageSlotCell
-            key={slot.id}
-            slot={slot}
-            pageId={page.id}
-            slotIndex={i}
+            key={slot.id} slot={slot} pageId={page.id} slotIndex={i}
             gridArea={['a','b','c','d'][i]}
             onClear={() => onSlotClear(i)}
             onCaptionChange={c => onSlotCaption(i, c)}
@@ -370,9 +348,7 @@ function PageCanvas({
       {/* Text blocks */}
       {page.textBlocks.map(block => (
         <EditableTextBlock
-          key={block.id}
-          block={block}
-          pageId={page.id}
+          key={block.id} block={block}
           selected={selectedTextId === block.id}
           onSelect={() => onTextSelect(block.id)}
           onUpdate={patch => onTextUpdate(block.id, patch)}
@@ -387,13 +363,9 @@ function PageCanvas({
         style={{
           top: `${bleedY}%`, left: `${bleedX}%`,
           right: `${bleedX}%`, bottom: `${bleedY}%`,
-          border: '1px dashed rgba(255,220,80,0.55)',
+          border: '1px dashed rgba(180,140,0,0.4)',
         }}
       />
-      {/* Active page highlight border */}
-      {isActive && (
-        <div className="absolute inset-0 ring-2 ring-inset ring-white/20 pointer-events-none z-50" />
-      )}
     </div>
   )
 }
@@ -402,38 +374,34 @@ function PageCanvas({
 
 function IfcPlaceholder() {
   return (
-    <div className="relative w-full h-full bg-[#1c1a17] flex flex-col items-center justify-center gap-2 shadow-2xl">
-      <span className="text-stone-600 text-xs uppercase tracking-widest">Inner cover</span>
-      <span className="text-stone-700 text-[10px]">Not editable</span>
+    <div className="relative w-full h-full bg-stone-100 flex flex-col items-center justify-center gap-1 border border-stone-200">
+      <span className="text-stone-400 text-xs uppercase tracking-widest">Inner cover</span>
+      <span className="text-stone-300 text-[10px]">Not editable</span>
     </div>
   )
 }
 
-// ─── Notes dropdown ────────────────────────────────────────────────────────────
+// ─── Notes ────────────────────────────────────────────────────────────────────
 
 function NotesDropdown({ notes, onChange }: { notes: string[]; onChange: (n: string[]) => void }) {
   const [open, setOpen] = useState(false)
   return (
-    <div>
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-1 py-2.5 text-xs font-semibold text-stone-300 hover:text-white transition-colors group"
-      >
+    <div className="border-t border-stone-100 pt-2">
+      <button onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-1 py-2 text-xs font-semibold text-stone-700 hover:text-stone-900 transition-colors">
         <span className="flex items-center gap-2">
-          <MessageSquarePlus size={13} />
+          <MessageSquarePlus size={13} className="text-stone-500" />
           Notes for design team
           {notes.length > 0 && (
-            <span className="bg-amber-400 text-stone-900 text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none">
-              {notes.length}
-            </span>
+            <span className="bg-amber-400 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{notes.length}</span>
           )}
         </span>
-        <ChevronRight size={13} className={`text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`} />
+        <ChevronRight size={13} className={`text-stone-400 transition-transform ${open ? 'rotate-90' : ''}`} />
       </button>
       {open && (
         <div className="pb-3 flex flex-col gap-2">
-          <p className="text-[10px] text-stone-500 leading-relaxed px-1">
-            Any special requests for this page — effects, cross-spine photos, framing. Our team handles it before printing.
+          <p className="text-[10px] text-stone-400 leading-relaxed px-1">
+            Any requests for this page — effects, cross-spine photos, framing.
           </p>
           <NotesList notes={notes} onChange={onChange} />
         </div>
@@ -445,22 +413,20 @@ function NotesDropdown({ notes, onChange }: { notes: string[]; onChange: (n: str
 function NotesList({ notes, onChange }: { notes: string[]; onChange: (n: string[]) => void }) {
   const [draft, setDraft] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
-
   function addNote() {
     const t = draft.trim(); if (!t) return
     onChange([...notes, t]); setDraft(''); inputRef.current?.focus()
   }
-
   return (
     <div className="flex flex-col gap-2">
       {notes.length > 0 && (
         <ul className="flex flex-col gap-1">
           {notes.map((note, i) => (
-            <li key={i} className="flex items-start gap-2 bg-amber-950/30 border border-amber-900/30 rounded-lg px-2.5 py-1.5 group">
+            <li key={i} className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5 group">
               <span className="text-amber-400 mt-0.5 shrink-0 text-[10px]">•</span>
-              <span className="text-[10px] text-stone-300 flex-1">{note}</span>
+              <span className="text-[10px] text-stone-700 flex-1">{note}</span>
               <button onClick={() => onChange(notes.filter((_,idx) => idx !== i))}
-                className="text-stone-600 hover:text-red-400 transition-colors shrink-0 opacity-0 group-hover:opacity-100">
+                className="text-stone-300 hover:text-red-400 transition-colors shrink-0 opacity-0 group-hover:opacity-100">
                 <Trash2 size={11} />
               </button>
             </li>
@@ -471,9 +437,9 @@ function NotesList({ notes, onChange }: { notes: string[]; onChange: (n: string[
         <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && addNote()}
           placeholder="Add a request…"
-          className="flex-1 text-[10px] bg-stone-800 border border-stone-700 rounded-lg px-2.5 py-1.5 text-stone-300 placeholder-stone-600 focus:outline-none focus:border-stone-500" />
+          className="flex-1 text-[10px] border border-stone-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-stone-400 placeholder-stone-300" />
         <button onClick={addNote} disabled={!draft.trim()}
-          className="bg-stone-700 hover:bg-stone-600 text-white rounded-lg px-2.5 py-1.5 text-xs disabled:opacity-30 transition-colors">
+          className="bg-stone-900 text-white rounded-lg px-2.5 py-1.5 text-xs disabled:opacity-30 transition-colors hover:bg-stone-700">
           <Plus size={12} />
         </button>
       </div>
@@ -485,63 +451,54 @@ function NotesList({ notes, onChange }: { notes: string[]; onChange: (n: string[
 
 function TextStylePanel({ block, onUpdate }: { block: TextBlock; onUpdate: (p: Partial<TextBlock>) => void }) {
   return (
-    <div className="flex flex-col gap-3 p-3 border-b border-stone-700">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-400">Text style</p>
-
-      {/* Font family */}
+    <div className="flex flex-col gap-3 px-3 py-3 border-b border-stone-100 bg-stone-50">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">Text style</p>
       <div className="flex gap-1.5">
         {(['serif', 'sans-serif'] as const).map(f => (
           <button key={f} onClick={() => onUpdate({ fontFamily: f })}
-            className={`flex-1 py-1.5 rounded-lg text-[10px] transition-colors ${
-              block.fontFamily === f ? 'bg-stone-600 text-white' : 'bg-stone-800 text-stone-400 hover:bg-stone-700'
+            className={`flex-1 py-1.5 rounded-lg text-[10px] border transition-colors ${
+              block.fontFamily === f ? 'bg-stone-900 text-white border-stone-900' : 'bg-white text-stone-600 border-stone-200 hover:border-stone-400'
             }`}
             style={{ fontFamily: f === 'serif' ? 'Georgia, serif' : 'sans-serif' }}>
             {f === 'serif' ? 'Serif' : 'Sans'}
           </button>
         ))}
       </div>
-
-      {/* Size */}
       <div className="flex gap-1">
         {(['XS','S','M','L','XL'] as const).map((label, i) => (
-          <button key={i} onClick={() => onUpdate({ fontSize: i + 1 as 1|2|3|4|5 })}
-            className={`flex-1 py-1 rounded text-[9px] transition-colors ${
-              block.fontSize === i + 1 ? 'bg-stone-600 text-white' : 'bg-stone-800 text-stone-400 hover:bg-stone-700'
+          <button key={i} onClick={() => onUpdate({ fontSize: (i + 1) as 1|2|3|4|5 })}
+            className={`flex-1 py-1 rounded text-[9px] border transition-colors ${
+              block.fontSize === i + 1 ? 'bg-stone-900 text-white border-stone-900' : 'bg-white text-stone-500 border-stone-200 hover:border-stone-400'
             }`}>
             {label}
           </button>
         ))}
       </div>
-
-      {/* Bold / Italic / Align */}
-      <div className="flex gap-1">
+      <div className="flex gap-1 items-center">
         <button onClick={() => onUpdate({ bold: !block.bold })}
-          className={`p-1.5 rounded transition-colors ${block.bold ? 'bg-stone-600 text-white' : 'bg-stone-800 text-stone-400 hover:bg-stone-700'}`}>
+          className={`p-1.5 rounded border transition-colors ${block.bold ? 'bg-stone-900 text-white border-stone-900' : 'bg-white text-stone-500 border-stone-200 hover:border-stone-400'}`}>
           <Bold size={12} />
         </button>
         <button onClick={() => onUpdate({ italic: !block.italic })}
-          className={`p-1.5 rounded transition-colors ${block.italic ? 'bg-stone-600 text-white' : 'bg-stone-800 text-stone-400 hover:bg-stone-700'}`}>
+          className={`p-1.5 rounded border transition-colors ${block.italic ? 'bg-stone-900 text-white border-stone-900' : 'bg-white text-stone-500 border-stone-200 hover:border-stone-400'}`}>
           <Italic size={12} />
         </button>
-        <div className="w-px bg-stone-700 mx-1" />
+        <div className="w-px bg-stone-200 h-5 mx-0.5" />
         {(['left','center','right'] as const).map(align => (
           <button key={align} onClick={() => onUpdate({ textAlign: align })}
-            className={`p-1.5 rounded transition-colors ${block.textAlign === align ? 'bg-stone-600 text-white' : 'bg-stone-800 text-stone-400 hover:bg-stone-700'}`}>
+            className={`p-1.5 rounded border transition-colors ${block.textAlign === align ? 'bg-stone-900 text-white border-stone-900' : 'bg-white text-stone-500 border-stone-200 hover:border-stone-400'}`}>
             {align === 'left' ? <AlignLeft size={12} /> : align === 'center' ? <AlignCenter size={12} /> : <AlignRight size={12} />}
           </button>
         ))}
         <div className="flex-1" />
-        {/* Color swatch */}
         <input type="color" value={block.color} onChange={e => onUpdate({ color: e.target.value })}
-          className="w-7 h-7 rounded border border-stone-700 cursor-pointer bg-transparent" title="Text colour" />
+          className="w-7 h-7 rounded border border-stone-200 cursor-pointer" title="Text colour" />
       </div>
-
-      {/* Quick colours */}
       <div className="flex gap-1 flex-wrap">
-        {['#ffffff','#000000','#faf9f7','#e8d5b0','#a3c4bc','#c4a3bc','#f4b942','#e05c5c'].map(c => (
+        {['#000000','#ffffff','#faf9f7','#1a1714','#e8d5b0','#a3c4bc','#f4b942','#e05c5c'].map(c => (
           <button key={c} onClick={() => onUpdate({ color: c })}
             className="w-5 h-5 rounded-full border-2 transition-all hover:scale-110"
-            style={{ background: c, borderColor: block.color === c ? '#fff' : '#444' }} />
+            style={{ background: c, borderColor: block.color === c ? '#1a1714' : '#d1d5db' }} />
         ))}
       </div>
     </div>
@@ -554,19 +511,19 @@ function BookSizeDropdown({ value, onChange }: { value: BookSizeId; onChange: (i
   const [open, setOpen] = useState(false)
   const selected = getBookSize(value)
   return (
-    <div className="border-b border-stone-700">
+    <div className="border-b border-stone-100">
       <button onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-stone-800 transition-colors">
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-stone-50 transition-colors">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-xs font-semibold text-stone-300">Book size</span>
-          <span className="text-[10px] text-stone-500 truncate">{selected.label} · {selected.dimensions}</span>
+          <span className="text-sm font-semibold text-stone-800">Book size</span>
+          <span className="text-xs text-stone-400 truncate">{selected.label} · {selected.dimensions}</span>
         </div>
-        <svg className={`w-4 h-4 text-stone-500 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 16 16">
+        <svg className={`w-4 h-4 text-stone-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 16 16">
           <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
       {open && (
-        <div className="px-2 pb-3">
+        <div className="px-3 pb-3">
           <BookSizePicker value={value} onChange={id => { onChange(id); setOpen(false) }} />
         </div>
       )}
@@ -591,16 +548,13 @@ export default function CurateEditor({
   const spreads = buildSpreads(layout.pages)
   const currentSpread = spreads[spreadIndex]
 
-  // Bleed guide percentages
   const dims = BOOK_DIMS[bookSizeId] ?? [8, 10]
   const bleedX = (0.5 / dims[0]) * 100
   const bleedY = (0.5 / dims[1]) * 100
 
-  // Resolved active page for right panel controls
   const activePageIndex = activePageId ? layout.pages.findIndex(p => p.id === activePageId) : -1
   const activePage = activePageIndex >= 0 ? layout.pages[activePageIndex] : null
 
-  // Selected text block (for style panel)
   const selectedTextBlock = selectedText
     ? layout.pages.find(p => p.id === selectedText.pageId)?.textBlocks.find(b => b.id === selectedText.blockId) ?? null
     : null
@@ -639,8 +593,7 @@ export default function CurateEditor({
     updatePage(activePageIndex, page => {
       const t = getTemplate(type)
       return {
-        ...page,
-        layoutType: type,
+        ...page, layoutType: type,
         slots: makeSlots(t.slotCount).map((s, i) => ({
           ...s,
           photoUrl: page.slots[i]?.photoUrl ?? null,
@@ -652,9 +605,9 @@ export default function CurateEditor({
 
   function addPage() {
     const newPage = makeBlankPage('full')
-    setLayout(prev => ({ pages: [...prev.pages, newPage] }))
-    // navigate to new spread
-    const newSpreads = buildSpreads([...layout.pages, newPage])
+    const newPages = [...layout.pages, newPage]
+    setLayout({ pages: newPages })
+    const newSpreads = buildSpreads(newPages)
     setSpreadIndex(newSpreads.length - 1)
     setActivePageId(newPage.id)
   }
@@ -671,8 +624,7 @@ export default function CurateEditor({
     const newBlock: TextBlock = {
       id: crypto.randomUUID(),
       content: 'Double-click to edit',
-      x: 20,
-      y: 45,
+      x: 20, y: 45,
       fontSize: 3,
       fontFamily: 'serif',
       color: '#ffffff',
@@ -680,10 +632,7 @@ export default function CurateEditor({
       bold: false,
       italic: false,
     }
-    updatePageById(activePageId, page => ({
-      ...page,
-      textBlocks: [...page.textBlocks, newBlock],
-    }))
+    updatePageById(activePageId, page => ({ ...page, textBlocks: [...page.textBlocks, newBlock] }))
     setSelectedText({ pageId: activePageId, blockId: newBlock.id })
   }
 
@@ -695,10 +644,7 @@ export default function CurateEditor({
   }
 
   function deleteTextBlock(pageId: string, blockId: string) {
-    updatePageById(pageId, page => ({
-      ...page,
-      textBlocks: page.textBlocks.filter(b => b.id !== blockId),
-    }))
+    updatePageById(pageId, page => ({ ...page, textBlocks: page.textBlocks.filter(b => b.id !== blockId) }))
     setSelectedText(null)
   }
 
@@ -712,194 +658,170 @@ export default function CurateEditor({
 
   const filledSlots = layout.pages.reduce((a, p) => a + p.slots.filter(s => s.photoUrl).length, 0)
 
+  // Helper to render one side of the spread
+  function renderPage(page: BookPage | null, isLeft: boolean) {
+    if (isLeft && currentSpread.left === null) return <IfcPlaceholder />
+    if (!page) return (
+      <div className="w-full h-full bg-stone-50 border border-dashed border-stone-200 flex items-center justify-center">
+        <span className="text-stone-300 text-xs">No page</span>
+      </div>
+    )
+    return (
+      <PageCanvas
+        page={page}
+        bleedX={bleedX} bleedY={bleedY}
+        isActive={activePageId === page.id}
+        onActivate={() => { setActivePageId(page.id); setSelectedText(null) }}
+        onSlotClear={i => updatePageById(page.id, p => ({
+          ...p, slots: p.slots.map((s, si) => si === i ? { ...s, photoUrl: null, caption: null } : s),
+        }))}
+        onSlotCaption={(i, c) => updatePageById(page.id, p => ({
+          ...p, slots: p.slots.map((s, si) => si === i ? { ...s, caption: c } : s),
+        }))}
+        onSlotPosition={(i, pos) => updatePageById(page.id, p => ({
+          ...p, slots: p.slots.map((s, si) => si === i ? { ...s, objectPosition: pos } : s),
+        }))}
+        selectedTextId={selectedText?.pageId === page.id ? selectedText.blockId : null}
+        onTextSelect={id => setSelectedText(id ? { pageId: page.id, blockId: id } : null)}
+        onTextUpdate={(blockId, patch) => updateTextBlock(page.id, blockId, patch)}
+        onTextDelete={blockId => deleteTextBlock(page.id, blockId)}
+      />
+    )
+  }
+
   return (
     <DndContext id="curate-editor" onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="fixed inset-0 bg-[#2c2a27] flex flex-col" style={{ fontFamily: 'var(--font-inter)' }}>
+      <div className="fixed inset-0 bg-[#e8e6e1] flex flex-col" style={{ fontFamily: 'var(--font-inter)' }}>
 
-        {/* ── Top bar ──────────────────────────────────────────────────────── */}
-        <div className="bg-[#1c1a17] border-b border-stone-800 px-5 py-2.5 flex items-center justify-between shrink-0 z-10">
+        {/* ── Top bar ───────────────────────────────────────────────────────── */}
+        <div className="bg-white border-b border-stone-200 px-5 py-3 flex items-center justify-between shrink-0 z-10">
           <div className="flex items-center gap-3">
             <Link href={backHref ?? `/dashboard/books/${bookId}`}
-              className="text-stone-500 hover:text-stone-200 transition-colors flex items-center gap-1.5">
-              <ArrowLeft size={18} />
-              {backHref && <span className="text-xs text-stone-500">Back</span>}
+              className="text-stone-400 hover:text-stone-800 transition-colors flex items-center gap-1.5">
+              <ArrowLeft size={20} />
+              {backHref && <span className="text-xs text-stone-400">Back</span>}
             </Link>
             <div>
-              <span className="text-sm font-semibold text-stone-200">{bookTitle}</span>
-              <span className="text-xs text-stone-500 ml-3">
+              <span className="text-sm font-semibold text-stone-900">{bookTitle}</span>
+              <span className="text-xs text-stone-400 ml-3">
                 {layout.pages.length} pages · {filledSlots} photos placed
               </span>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={addPage}
-              className="flex items-center gap-1.5 border border-stone-700 px-3 py-1.5 rounded-full text-xs text-stone-400 hover:bg-stone-800 transition-colors">
-              <Plus size={13} /> Add page
+              className="flex items-center gap-1.5 border border-stone-200 px-3 py-2 rounded-full text-sm text-stone-600 hover:bg-stone-50 transition-colors">
+              <Plus size={14} /> Add page
             </button>
             <button onClick={deletePage} disabled={!activePageId || layout.pages.length <= 1}
-              className="flex items-center gap-1.5 border border-red-900/50 px-3 py-1.5 rounded-full text-xs text-red-400/70 hover:bg-red-950/30 disabled:opacity-30 transition-colors">
-              <Trash2 size={13} /> Delete page
+              className="flex items-center gap-1.5 border border-red-100 px-3 py-2 rounded-full text-sm text-red-400 hover:bg-red-50 disabled:opacity-30 transition-colors">
+              <Trash2 size={14} /> Delete page
             </button>
             <button onClick={addTextBlock} disabled={!activePageId}
-              className="flex items-center gap-1.5 border border-stone-700 px-3 py-1.5 rounded-full text-xs text-stone-400 hover:bg-stone-800 disabled:opacity-30 transition-colors">
-              <Type size={13} /> Add text
+              className="flex items-center gap-1.5 border border-stone-200 px-3 py-2 rounded-full text-sm text-stone-600 hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              <Type size={14} /> Add text
             </button>
             <button onClick={handleSave} disabled={saving}
-              className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                saved ? 'bg-green-700 text-white' : 'bg-stone-200 text-stone-900 hover:bg-white'
+              className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-colors ${
+                saved ? 'bg-green-600 text-white' : 'bg-stone-900 text-white hover:bg-stone-700'
               } disabled:opacity-50`}>
-              <Save size={13} />
-              {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save'}
+              <Save size={14} />
+              {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save layout'}
             </button>
           </div>
         </div>
 
         <div className="flex flex-1 overflow-hidden">
 
-          {/* ── Left: Photo pool ─────────────────────────────────────────── */}
-          <div className="w-52 bg-[#1c1a17] border-r border-stone-800 flex flex-col shrink-0">
-            <div className="px-3 py-2.5 border-b border-stone-800">
-              <p className="text-xs font-semibold text-stone-300">Photo pool</p>
-              <p className="text-[10px] text-stone-600 mt-0.5">{photos.length} photos — drag onto page</p>
+          {/* ── Left: Photo pool ──────────────────────────────────────────── */}
+          <div className="w-56 bg-white border-r border-stone-200 flex flex-col shrink-0">
+            <div className="px-4 py-3 border-b border-stone-100">
+              <p className="text-sm font-semibold text-stone-800">Photo pool</p>
+              <p className="text-xs text-stone-400 mt-0.5">{photos.length} photos — drag onto page</p>
             </div>
-            <div className="flex-1 overflow-y-auto p-2 grid grid-cols-3 gap-1.5 content-start">
-              {photos.map((photo, i) => (
-                <PoolPhoto key={i} photo={photo} index={i} />
-              ))}
+            <div className="flex-1 overflow-y-auto p-3 grid grid-cols-3 gap-2 content-start">
+              {photos.map((photo, i) => <PoolPhoto key={i} photo={photo} index={i} />)}
               {photos.length === 0 && (
-                <p className="col-span-3 text-[10px] text-stone-600 text-center py-8">No photos yet</p>
+                <p className="col-span-3 text-xs text-stone-400 text-center py-8">No photos yet</p>
               )}
             </div>
           </div>
 
-          {/* ── Centre: Spread view ──────────────────────────────────────── */}
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 py-4 overflow-hidden">
+          {/* ── Centre: Spread ────────────────────────────────────────────── */}
+          <div className="flex-1 flex flex-col items-center justify-between py-5 px-4 overflow-hidden gap-4">
 
-            {/* Spread label */}
+            {/* Spread label + dots */}
             <div className="flex items-center gap-3 shrink-0">
-              <span className="text-xs text-stone-500">
+              <span className="text-sm text-stone-500 font-medium">
                 {spreadIndex === 0
-                  ? 'Inner cover · Page 1'
-                  : (() => {
-                      const s = currentSpread
-                      const l = s.leftLabel ?? ''
-                      const r = s.rightLabel ?? ''
-                      return r ? `${l} · ${r}` : l
-                    })()
+                  ? 'Inner cover  ·  Page 1'
+                  : [currentSpread.leftLabel, currentSpread.rightLabel].filter(Boolean).join('  ·  ')
                 }
               </span>
               <div className="flex gap-1">
                 {spreads.map((_, i) => (
                   <button key={i} onClick={() => { setSpreadIndex(i); setActivePageId(null); setSelectedText(null) }}
                     className={`h-1.5 rounded-full transition-all ${
-                      i === spreadIndex ? 'bg-stone-300 w-5' : 'bg-stone-700 w-1.5 hover:bg-stone-500'
+                      i === spreadIndex ? 'bg-stone-700 w-5' : 'bg-stone-300 w-1.5 hover:bg-stone-500'
                     }`} />
                 ))}
               </div>
             </div>
 
-            {/* Spread canvas + prev/next */}
-            <div className="flex items-center gap-3 flex-1 w-full" style={{ maxHeight: 'calc(100vh - 140px)' }}>
+            {/* Spread canvas */}
+            <div className="flex-1 flex items-center justify-center w-full min-h-0">
+              <div className="flex items-center gap-3 w-full h-full">
 
-              <button onClick={() => { setSpreadIndex(i => Math.max(0, i - 1)); setActivePageId(null); setSelectedText(null) }}
-                disabled={spreadIndex === 0}
-                className="shrink-0 w-10 h-10 rounded-full bg-stone-800 flex items-center justify-center text-stone-400 hover:bg-stone-700 disabled:opacity-20 transition-all">
-                <ChevronLeft size={20} />
-              </button>
+                {/* Prev */}
+                <button onClick={() => { setSpreadIndex(i => Math.max(0, i - 1)); setActivePageId(null); setSelectedText(null) }}
+                  disabled={spreadIndex === 0}
+                  className="shrink-0 w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center text-stone-600 hover:bg-stone-50 disabled:opacity-20 transition-all hover:scale-105">
+                  <ChevronLeft size={22} />
+                </button>
 
-              {/* Two pages side by side */}
-              <div className="flex-1 flex items-center justify-center gap-0" style={{ height: '100%' }}>
-                <div
-                  className="flex items-stretch gap-0"
-                  style={{
-                    // Aspect ratio: each page is dims[0]:dims[1], two pages side by side = 2*w:h
-                    aspectRatio: `${dims[0] * 2}/${dims[1]}`,
-                    maxHeight: '100%',
-                    maxWidth: '100%',
-                    width: 'auto',
-                  }}
-                >
-                  {/* Left page */}
-                  <div className="flex-1 relative">
-                    {currentSpread.left === null ? (
-                      <IfcPlaceholder />
-                    ) : (
-                      <PageCanvas
-                        page={currentSpread.left}
-                        bleedX={bleedX} bleedY={bleedY}
-                        isActive={activePageId === currentSpread.left.id}
-                        onActivate={() => { setActivePageId(currentSpread.left!.id); setSelectedText(null) }}
-                        onSlotClear={i => updatePageById(currentSpread.left!.id, p => ({
-                          ...p, slots: p.slots.map((s, si) => si === i ? { ...s, photoUrl: null, caption: null } : s),
-                        }))}
-                        onSlotCaption={(i, c) => updatePageById(currentSpread.left!.id, p => ({
-                          ...p, slots: p.slots.map((s, si) => si === i ? { ...s, caption: c } : s),
-                        }))}
-                        onSlotPosition={(i, pos) => updatePageById(currentSpread.left!.id, p => ({
-                          ...p, slots: p.slots.map((s, si) => si === i ? { ...s, objectPosition: pos } : s),
-                        }))}
-                        selectedTextId={selectedText?.pageId === currentSpread.left.id ? selectedText.blockId : null}
-                        onTextSelect={id => setSelectedText(id ? { pageId: currentSpread.left!.id, blockId: id } : null)}
-                        onTextUpdate={(blockId, patch) => updateTextBlock(currentSpread.left!.id, blockId, patch)}
-                        onTextDelete={blockId => deleteTextBlock(currentSpread.left!.id, blockId)}
-                      />
-                    )}
-                  </div>
-
-                  {/* Spine */}
-                  <div className="w-2.5 shrink-0 bg-gradient-to-r from-stone-900 via-stone-700 to-stone-900 shadow-inner z-10" />
-
-                  {/* Right page */}
-                  <div className="flex-1 relative">
-                    {currentSpread.right === null ? (
-                      <div className="w-full h-full bg-[#1c1a17] flex items-center justify-center">
-                        <span className="text-stone-700 text-[10px]">No page</span>
-                      </div>
-                    ) : (
-                      <PageCanvas
-                        page={currentSpread.right}
-                        bleedX={bleedX} bleedY={bleedY}
-                        isActive={activePageId === currentSpread.right.id}
-                        onActivate={() => { setActivePageId(currentSpread.right!.id); setSelectedText(null) }}
-                        onSlotClear={i => updatePageById(currentSpread.right!.id, p => ({
-                          ...p, slots: p.slots.map((s, si) => si === i ? { ...s, photoUrl: null, caption: null } : s),
-                        }))}
-                        onSlotCaption={(i, c) => updatePageById(currentSpread.right!.id, p => ({
-                          ...p, slots: p.slots.map((s, si) => si === i ? { ...s, caption: c } : s),
-                        }))}
-                        onSlotPosition={(i, pos) => updatePageById(currentSpread.right!.id, p => ({
-                          ...p, slots: p.slots.map((s, si) => si === i ? { ...s, objectPosition: pos } : s),
-                        }))}
-                        selectedTextId={selectedText?.pageId === currentSpread.right.id ? selectedText.blockId : null}
-                        onTextSelect={id => setSelectedText(id ? { pageId: currentSpread.right!.id, blockId: id } : null)}
-                        onTextUpdate={(blockId, patch) => updateTextBlock(currentSpread.right!.id, blockId, patch)}
-                        onTextDelete={blockId => deleteTextBlock(currentSpread.right!.id, blockId)}
-                      />
-                    )}
+                {/* The two pages */}
+                <div className="flex-1 flex items-center justify-center min-h-0 min-w-0 h-full">
+                  <div
+                    className="flex items-stretch shadow-2xl"
+                    style={{
+                      /* fill vertically, respect aspect ratio */
+                      height: '100%',
+                      aspectRatio: `${dims[0] * 2} / ${dims[1]}`,
+                      maxWidth: '100%',
+                    }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      {renderPage(currentSpread.left, true)}
+                    </div>
+                    {/* Spine */}
+                    <div className="w-3 shrink-0 bg-gradient-to-r from-stone-400 via-stone-200 to-stone-400" />
+                    <div className="flex-1 min-w-0">
+                      {renderPage(currentSpread.right, false)}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <button onClick={() => { setSpreadIndex(i => Math.min(spreads.length - 1, i + 1)); setActivePageId(null); setSelectedText(null) }}
-                disabled={spreadIndex === spreads.length - 1}
-                className="shrink-0 w-10 h-10 rounded-full bg-stone-800 flex items-center justify-center text-stone-400 hover:bg-stone-700 disabled:opacity-20 transition-all">
-                <ChevronRight size={20} />
-              </button>
+                {/* Next */}
+                <button onClick={() => { setSpreadIndex(i => Math.min(spreads.length - 1, i + 1)); setActivePageId(null); setSelectedText(null) }}
+                  disabled={spreadIndex === spreads.length - 1}
+                  className="shrink-0 w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center text-stone-600 hover:bg-stone-50 disabled:opacity-20 transition-all hover:scale-105">
+                  <ChevronRight size={22} />
+                </button>
+              </div>
             </div>
 
-            {/* Bleed guide hint */}
-            <p className="text-[9px] text-stone-700 shrink-0">
-              <span style={{ color: 'rgba(255,220,80,0.6)' }}>— — —</span> yellow dashed line = safe zone (0.5&quot; bleed margin)
-              {activePageId ? '' : ' · Click a page to select it'}
+            {/* Bleed hint */}
+            <p className="text-[10px] text-stone-400 shrink-0">
+              <span className="opacity-60">– – –</span> dashed line = 0.5&quot; bleed margin (safe zone for print)
+              {!activePageId && <span className="ml-2 text-stone-400">· Click a page to edit it</span>}
             </p>
           </div>
 
-          {/* ── Right: Controls ──────────────────────────────────────────── */}
-          <div className="w-64 bg-[#1c1a17] border-l border-stone-800 flex flex-col shrink-0 overflow-y-auto">
+          {/* ── Right: Controls ───────────────────────────────────────────── */}
+          <div className="w-72 bg-white border-l border-stone-200 flex flex-col shrink-0 overflow-y-auto">
 
             <BookSizeDropdown value={bookSizeId} onChange={setBookSizeId} />
 
-            {/* Text style panel — shows when a text block is selected */}
             {selectedTextBlock && (
               <TextStylePanel
                 block={selectedTextBlock}
@@ -907,14 +829,13 @@ export default function CurateEditor({
               />
             )}
 
-            {/* Layout templates */}
-            {activePage && (
+            {activePage ? (
               <>
-                <div className="px-3 py-2.5 border-b border-stone-700">
-                  <p className="text-xs font-semibold text-stone-300">Page layout</p>
-                  <p className="text-[10px] text-stone-600 mt-0.5">Click to apply to selected page</p>
+                <div className="px-4 py-3 border-b border-stone-100">
+                  <p className="text-sm font-semibold text-stone-800">Page layout</p>
+                  <p className="text-xs text-stone-400 mt-0.5">Applied to selected page</p>
                 </div>
-                <div className="px-2 pt-2 pb-1 grid grid-cols-2 gap-1.5">
+                <div className="p-3 grid grid-cols-2 gap-2">
                   {LAYOUT_TEMPLATES.map(t => (
                     <LayoutPreview key={t.type} type={t.type}
                       active={activePage.layoutType === t.type}
@@ -922,35 +843,31 @@ export default function CurateEditor({
                   ))}
                 </div>
 
-                {/* Background colour */}
-                <div className="px-3 py-3 border-t border-stone-700">
-                  <p className="text-[10px] font-semibold text-stone-400 mb-2 uppercase tracking-wider">Page background</p>
+                <div className="px-4 py-3 border-t border-stone-100">
+                  <p className="text-xs font-semibold text-stone-700 mb-2">Page background</p>
                   <div className="flex items-center gap-2 flex-wrap">
                     <input type="color" value={activePage.background}
                       onChange={e => updatePage(activePageIndex, p => ({ ...p, background: e.target.value }))}
-                      className="w-8 h-8 rounded-lg cursor-pointer border border-stone-700 bg-transparent" />
-                    {['#ffffff','#faf9f7','#1a1714','#e8e0d5','#dce8e0','#e8dce8','#111111','#2c2a27'].map(c => (
+                      className="w-9 h-9 rounded-lg cursor-pointer border border-stone-200" />
+                    {['#ffffff','#faf9f7','#1a1714','#e8e0d5','#dce8e0','#e8dce8','#111111'].map(c => (
                       <button key={c} onClick={() => updatePage(activePageIndex, p => ({ ...p, background: c }))}
-                        className="w-6 h-6 rounded-full border-2 transition-all hover:scale-110"
-                        style={{ background: c, borderColor: activePage.background === c ? '#fff' : '#444' }} />
+                        className="w-7 h-7 rounded-full border-2 transition-all hover:scale-110"
+                        style={{ background: c, borderColor: activePage.background === c ? '#1a1714' : '#e5e5e5' }} />
                     ))}
                   </div>
                 </div>
 
-                {/* Notes */}
-                <div className="px-3 py-1 border-t border-stone-700">
+                <div className="px-3 pb-4">
                   <NotesDropdown
                     notes={activePage.notes}
                     onChange={notes => updatePage(activePageIndex, p => ({ ...p, notes }))}
                   />
                 </div>
               </>
-            )}
-
-            {!activePage && (
-              <div className="flex-1 flex items-center justify-center px-4 text-center">
-                <p className="text-[10px] text-stone-600 leading-relaxed">
-                  Click a page in the spread to select it and see layout options
+            ) : (
+              <div className="flex-1 flex items-center justify-center px-6 text-center">
+                <p className="text-sm text-stone-400 leading-relaxed">
+                  Click a page in the spread to select it
                 </p>
               </div>
             )}
@@ -961,7 +878,7 @@ export default function CurateEditor({
 
       <DragOverlay>
         {activePhoto && (
-          <div className="w-16 h-16 rounded-xl overflow-hidden shadow-2xl ring-2 ring-white/60 rotate-3">
+          <div className="w-20 h-20 rounded-xl overflow-hidden shadow-2xl ring-2 ring-stone-900 rotate-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={activePhoto} alt="" className="w-full h-full object-cover" />
           </div>
