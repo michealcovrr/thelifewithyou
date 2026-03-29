@@ -48,7 +48,7 @@ function PagePreviewModal({
   bookId: string
   onClose: () => void
 }) {
-  const filledSlots = page.slots.filter(s => s.photoUrl)
+  const photoEls = page.elements ?? []
 
   return (
     <div
@@ -63,47 +63,38 @@ function PagePreviewModal({
         <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
           <div>
             <p className="text-sm font-semibold text-stone-900">Page {pageIndex + 1}</p>
-            <p className="text-xs text-stone-400">{filledSlots.length} photo{filledSlots.length !== 1 ? 's' : ''} · {page.layoutType}</p>
+            <p className="text-xs text-stone-400">{photoEls.length} photo{photoEls.length !== 1 ? 's' : ''}</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 transition-colors">
             <X size={18} />
           </button>
         </div>
 
-        {/* Photo grid */}
+        {/* Page preview */}
         <div className="p-5">
-          {filledSlots.length === 0 ? (
+          {photoEls.length === 0 ? (
             <div className="aspect-[3/4] rounded-xl bg-stone-100 flex items-center justify-center text-stone-400 text-sm">
               No photos on this page
             </div>
           ) : (
             <div
-              className="rounded-xl overflow-hidden border border-stone-100"
+              className="relative rounded-xl overflow-hidden border border-stone-100"
               style={{ background: page.background, aspectRatio: '3/4' }}
             >
-              <div className={`w-full h-full grid gap-0.5 ${
-                filledSlots.length === 1 ? 'grid-cols-1' :
-                filledSlots.length === 2 ? 'grid-cols-2' :
-                filledSlots.length === 3 ? 'grid-cols-2' :
-                'grid-cols-2'
-              }`}>
-                {page.slots.filter(s => s.photoUrl).map((slot, i, arr) => (
-                  <div
-                    key={slot.id}
-                    className={`relative overflow-hidden ${
-                      arr.length === 3 && i === 0 ? 'col-span-2' : ''
-                    }`}
-                  >
-                    <Image
-                      src={slot.photoUrl!}
-                      alt={slot.caption ?? `Photo ${i + 1}`}
-                      fill
-                      className="object-cover"
-                      sizes="300px"
-                    />
-                  </div>
-                ))}
-              </div>
+              {photoEls.map(el => (
+                <div key={el.id} style={{
+                  position: 'absolute',
+                  left: `${el.x}%`, top: `${el.y}%`,
+                  width: `${el.width}%`, height: `${el.height}%`,
+                  borderRadius: `${el.borderRadius}%`,
+                  overflow: 'hidden',
+                  zIndex: el.zIndex,
+                }}>
+                  <Image src={el.photoUrl} alt="" fill className="object-cover"
+                    style={{ objectPosition: `${el.objectPosition.x}% ${el.objectPosition.y}%` }}
+                    sizes="300px" />
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -133,7 +124,7 @@ function SortablePageRow({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: page.id })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }
-  const firstPhoto = page.slots.find(s => s.photoUrl)?.photoUrl
+  const firstPhoto = (page.elements ?? [])[0]?.photoUrl
 
   return (
     <div
@@ -156,7 +147,7 @@ function SortablePageRow({
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-stone-800">Page {index + 1}</p>
         <p className="text-xs text-stone-400">
-          {page.slots.filter(s => s.photoUrl).length} photo{page.slots.filter(s => s.photoUrl).length !== 1 ? 's' : ''} · {page.layoutType}
+          {(page.elements ?? []).length} photo{(page.elements ?? []).length !== 1 ? 's' : ''}
         </p>
       </div>
 

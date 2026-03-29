@@ -28,10 +28,26 @@ export interface TextBlock {
   italic: boolean
 }
 
+/** Free-form photo element on the canvas */
+export interface CanvasPhoto {
+  id: string
+  photoUrl: string
+  x: number         // % from left (0–100)
+  y: number         // % from top (0–100)
+  width: number     // % of canvas width (1–100)
+  height: number    // % of canvas height (1–100)
+  objectPosition: { x: number; y: number }
+  borderRadius: number   // % (0 = sharp, 50 = circle)
+  zIndex: number
+}
+
 export interface BookPage {
   id: string
-  layoutType: LayoutType
-  slots: PageSlot[]
+  // Free-form elements (new model)
+  elements: CanvasPhoto[]
+  // Legacy grid fields (kept for migration, optional)
+  layoutType?: LayoutType
+  slots?: PageSlot[]
   background: string
   notes: string[]
   textBlocks: TextBlock[]
@@ -70,11 +86,9 @@ export function makeSlots(count: number): PageSlot[] {
 }
 
 export function makeBlankPage(layoutType: LayoutType = 'full'): BookPage {
-  const template = getTemplate(layoutType)
   return {
     id: crypto.randomUUID(),
-    layoutType,
-    slots: makeSlots(template.slotCount),
+    elements: [],
     background: '#ffffff',
     notes: [],
     textBlocks: [],
