@@ -21,6 +21,7 @@ export function formatDate(date: string) {
 }
 
 export function getInviteUrl(token: string) {
-  const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const base = process.env.NEXT_PUBLIC_APP_URL
+    || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000')
   return `${base}/contribute/${token}`
 }
